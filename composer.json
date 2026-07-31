@@ -13,19 +13,25 @@
         "php": "^8.3",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
+        "nunomaduro/essentials": "^1.2",
         "spatie/fork": "^1.2",
         "statamic/cms": "^6.0",
         "statamic/ssg": "^4.1"
     },
     "require-dev": {
+        "bamarni/composer-bin-plugin": "^1.8",
         "fakerphp/faker": "^1.23",
         "fruitcake/laravel-debugbar": "^4.0",
+        "larastan/larastan": "^3.0",
+        "laravel/boost": "^2.4",
+        "laravel/doctor": "^0.1.0",
         "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27",
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^12.5.12",
+        "pestphp/pest": "^5.0",
+        "roave/security-advisories": "dev-latest",
         "spatie/laravel-error-solutions": "^1.1"
     },
     "autoload": {
@@ -82,16 +88,24 @@
     "extra": {
         "laravel": {
             "dont-discover": []
+        },
+        "bamarni-bin": {
+            "bin-links": false,
+            "forward-command": false
         }
     },
     "config": {
+        "audit": {
+            "ignore": {}
+        },
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true,
-            "pixelfear/composer-dist-plugin": true
+            "pixelfear/composer-dist-plugin": true,
+            "bamarni/composer-bin-plugin": true
         }
     },
     "minimum-stability": "stable",

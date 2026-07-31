@@ -1,0 +1,117 @@
+name: Security Weekly
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+concurrency:
+  group: security-weekly
+  cancel-in-progress: false
+
+env:
+  PHP_VERSION: "8.4"
+
+jobs:
+  scan:
+    name: Full audit scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Prepare application environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Composer audit
+        run: composer audit --locked
+
+      - name: Doctor (full)
+        run: php artisan doctor --format=github --fail-on=fail
+
+      - name: Larastan
+        run: vendor/bin/phpstan analyse --error-format=github --no-progress
+
+      - name: npm audit (high+)
+        run: npm audit --omit=dev --audit-level=high
+
+  psalm-taint:
+    name: Psalm taint analysis
+    runs-on: ubuntu-latest
+    # Non-blocking: taint results are reported to Code Scanning, never fail the run.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Install Psalm (isolated bin namespace)
+        run: composer bin psalm install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare application environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          touch database/database.sqlite
+          php artisan migrate --force
+
+      - name: Psalm taint analysis (SARIF)
+        run: vendor-bin/psalm/vendor/bin/psalm --taint-analysis --no-cache --no-progress --report=results.sarif
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: psalm-taint
+
+  report-failure:
+    name: Open or update tracking issue
+    runs-on: ubuntu-latest
+    needs: [scan]
+    if: failure()
+    steps:
+      - name: Open or update security-audit issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body=$(printf 'The weekly security scan failed.\n\nRun: %s\n\nRe-run the workflow or inspect the job logs for the failing scanner (composer audit, doctor, larastan or npm audit).' "$RUN_URL")
+          existing=$(gh issue list --label security-audit --state open --json number --jq '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --label security-audit --title "Weekly security scan failing" --body "$body"
+          fi
