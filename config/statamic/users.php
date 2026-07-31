@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 return [
 
     /*
@@ -209,7 +211,7 @@ return [
     |
     */
 
-    'two_factor_enforced_roles' => [],
+    'two_factor_enforced_roles' => ['*'],
 
     /*
     |--------------------------------------------------------------------------
