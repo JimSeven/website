@@ -1,0 +1,121 @@
+name: Security PR Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: "8.4"
+
+jobs:
+  composer-audit:
+    name: composer-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Blocking gate: fails on any advisory in the locked dependency tree.
+      # Consciously accepted CVEs go in composer.json -> config.audit.ignore.
+      - name: Capture audit report (raw JSON)
+        run: composer audit --locked --format=json > composer-audit.json || true
+
+      - name: Audit (blocking)
+        run: composer audit --locked
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: composer-audit
+          path: composer-audit.json
+          if-no-files-found: ignore
+
+  doctor:
+    name: doctor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare application environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Capture doctor report (raw JSON)
+        run: php artisan doctor --format=json > doctor.json || true
+
+      # Blocking gate: only the security category fails the check.
+      - name: Doctor security diagnostics (blocking)
+        run: php artisan doctor --only=security --format=github --fail-on=fail
+
+      - name: Upload doctor report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: doctor
+          path: doctor.json
+          if-no-files-found: ignore
+
+  larastan:
+    name: larastan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Quality gate: baseline freezes the existing state, so only NEW errors block.
+      # Inline annotations via the github error format.
+      - name: Larastan
+        run: vendor/bin/phpstan analyse --error-format=github --no-progress
+
+  npm-audit:
+    name: npm-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # Prepared for future production frontend dependencies. Currently only
+      # build-time devDependencies exist, so --omit=dev has nothing to flag.
+      - name: npm audit (high+)
+        run: npm audit --omit=dev --audit-level=high
