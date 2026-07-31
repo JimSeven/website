@@ -40,7 +40,7 @@ jobs:
 
       - name: Upload audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: composer-audit
           path: composer-audit.json
@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload doctor report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: doctor
           path: doctor.json
