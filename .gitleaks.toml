@@ -1,0 +1,55 @@
+# Gitleaks configuration for this Statamic/Laravel repository.
+#
+# Statamic stores content, users (repository => file driver), forms and
+# blueprints as Markdown/YAML in the repo, so the scan MUST cover every file
+# type, not just PHP. gitleaks scans all tracked files by default; this config
+# only adds project-specific detections and suppresses known false positives.
+
+title = "website gitleaks config"
+
+[extend]
+# Inherit the full upstream ruleset (AWS, Stripe, GitHub/Slack tokens,
+# private keys, generic high-entropy API keys, ...).
+useDefault = true
+
+# --- Statamic-specific secrets ------------------------------------------------
+
+[[rules]]
+id = "statamic-license-key"
+description = "Statamic license key"
+regex = '''(?i)statamic_license_key[ \t]*[=:][ \t]*['"]?[A-Za-z0-9._\-]{8,}'''
+keywords = ["statamic_license_key"]
+
+[[rules]]
+id = "statamic-api-auth-token"
+description = "Statamic API / static-cache auth token"
+regex = '''(?i)(statamic_api_auth_token|recache_token)[ \t]*[=:][ \t]*['"]?[A-Za-z0-9._\-]{8,}'''
+keywords = ["statamic_api_auth_token", "recache_token"]
+
+[[rules]]
+id = "statamic-user-password-hash"
+description = "bcrypt password hash outside the canonical Statamic user store"
+regex = '''(?m)password_hash:[ \t]*['"]?\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}'''
+keywords = ["password_hash"]
+
+  # bcrypt hashes are the by-design storage for file-based users; only flag them
+  # when they surface OUTSIDE users/ (e.g. leaked into content, logs, fixtures).
+  [[rules.allowlists]]
+  description = "Canonical Statamic user store"
+  paths = ['''^users/.*\.ya?ml$''']
+
+# --- Global allowlist ---------------------------------------------------------
+
+[allowlist]
+description = "Known-safe example values and vendored skill documentation"
+# Vendored agent-skill docs ship deliberately fake example secrets in code
+# fences (bad-practice illustrations); these are documentation, not our source.
+paths = [
+  '''(^|/)\.claude/skills/''',
+  '''(^|/)\.agents/skills/''',
+]
+# Placeholder secrets used verbatim in documentation examples.
+regexes = [
+  '''sk_live_abc123''',
+  '''wJalrXUtnFEMI''',
+]
