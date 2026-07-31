@@ -16,6 +16,7 @@
         "laravel/tinker": "^3.0",
         "nunomaduro/essentials": "^1.2",
         "spatie/fork": "^1.2",
+        "spatie/laravel-csp": "^3.26",
         "statamic/cms": "^6.0",
         "statamic/ssg": "^4.1"
     },

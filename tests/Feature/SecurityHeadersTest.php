@@ -11,11 +11,14 @@ declare(strict_types=1);
  */
 $staticHeaders = [
     'X-Content-Type-Options' => 'nosniff',
-    'X-Frame-Options' => 'DENY',
     'Referrer-Policy' => 'strict-origin-when-cross-origin',
     'Permissions-Policy' => 'geolocation=(), camera=(), microphone=()',
     'X-XSS-Protection' => '0',
 ];
+
+// X-Frame-Options is asserted separately: it stays DENY on the CP, but the
+// ContentSecurityPolicy middleware drops it on the frontend, where the strict
+// CSP's frame-ancestors 'self' supersedes it (Issue #21).
 
 $routes = [
     'frontend' => 'up',
@@ -31,6 +34,19 @@ foreach ($routes as $label => $uri) {
         });
     }
 }
+
+test('keeps X-Frame-Options: DENY on the control panel', function () {
+    $response = $this->get('cp/auth/login');
+
+    expect($response->headers->get('X-Frame-Options'))->toBe('DENY');
+});
+
+test('drops X-Frame-Options on the frontend in favour of CSP frame-ancestors', function () {
+    $response = $this->get('up');
+
+    expect($response->headers->has('X-Frame-Options'))->toBeFalse()
+        ->and($response->headers->get('Content-Security-Policy'))->toContain("frame-ancestors 'self'");
+});
 
 test('does not send HSTS over plain HTTP', function () {
     $response = $this->get('http://localhost/up');

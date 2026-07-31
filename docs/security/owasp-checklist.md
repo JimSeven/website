@@ -127,12 +127,12 @@ Kein Header-Setzen im Repo (keine Middleware). Alle unten **offen**.
 |--------|--------------------------|-----|-----------|
 | Strict-Transport-Security | `max-age=63072000; includeSubDomains; preload` | CI | Nur mit vollständigem HTTPS setzen. |
 | X-Content-Type-Options | `nosniff` | CI | Trivial, hoher Nutzen. |
-| X-Frame-Options | `DENY` | CI | Bzw. via CSP `frame-ancestors`. |
+| X-Frame-Options | `DENY` | CI | Auf `/cp` gesetzt; auf dem Frontend durch CSP `frame-ancestors 'self'` ersetzt (sonst bräche same-origin Live Preview). |
 | Referrer-Policy | `strict-origin-when-cross-origin` | CI | |
 | Permissions-Policy | `geolocation=(), camera=(), microphone=()` | CI | Ungenutzte Features abschalten. |
-| Content-Security-Policy | Baseline `default-src 'self'; frame-ancestors 'self'; form-action 'self'` | **Review** | Urteilsabhängig wg. CP (Inertia/Vue) + evtl. Inline-Scripts. |
+| Content-Security-Policy | Baseline `default-src 'self'; frame-ancestors 'self'; form-action 'self'` | **Review (umgesetzt, #21)** | Frontend-only via `spatie/laravel-csp` (Basic-Preset + `frame-ancestors`, Nonces), `/cp` ausgenommen. |
 
-**CSP-Besonderheit (urteilsabhängig):** Striktes CSP ist Ziel, aber `unsafe-inline`/`unsafe-eval` vermeiden. Nonces > Hashes. **Statamic:** Das CP ist eine Inertia/Vue-3-App und Live Preview nutzt iframes/Module — eine zu strikte CSP kann CP oder Live Preview brechen. Daher CSP nur mit Test gegen CP + Frontend ausrollen, ggf. getrennte Policies für `/cp` und Frontend. `X-XSS-Protection` weglassen bzw. `0`.
+**CSP-Besonderheit (urteilsabhängig) — umgesetzt (#21):** Striktes CSP ohne `unsafe-inline`/`unsafe-eval`; Nonce-basiert (Laravel Vite via `Vite::useCspNonce()` an denselben spatie-Nonce gekoppelt). Policy nur aufs Frontend (`App\Http\Middleware\ContentSecurityPolicy` überspringt alle `statamic.cp.*`-Routes/`/cp`), CP + Live Preview bleiben unberührt. Browser-verifiziert gegen Frontend, CP und same-origin-Framing. `X-XSS-Protection: 0` bleibt.
 
 ---
 
