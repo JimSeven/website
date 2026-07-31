@@ -28,7 +28,9 @@ The audit covers exactly the checklist rows whose **Typ** is `Review` or `CI+Rev
    | composer advisories | artifact `composer-audit` (`composer-audit.json`) of `security-pr.yml` | `composer audit --locked --format=json` |
    | doctor security | artifact `doctor` (`doctor.json`) of `security-pr.yml` | `php artisan doctor --only=security --format=json` |
    | Larastan | `larastan` job status of `security-pr.yml` | `vendor/bin/phpstan analyse --error-format=json` |
-   | Psalm taint (SARIF) | Code Scanning alerts, `tool_name=Psalm` (uploaded by `security-weekly.yml`) | `vendor-bin/psalm/vendor/bin/psalm --taint-analysis --no-cache --report=results.sarif` |
+   | Psalm taint (SARIF) | Code Scanning alerts, `tool_name=Psalm` (uploaded by `security-weekly.yml`) | `vendor-bin/psalm/vendor/bin/psalm --taint-analysis --no-cache --report=results.sarif` (optional, time-box it — a full-repo taint run is slow) |
+
+   Empty Code Scanning is expected before the first `security-weekly.yml` run; when Psalm resolves to neither CI nor a run fallback, record it as `unavailable` and move on.
 
    Fetch CI artifacts with:
    ```
@@ -41,7 +43,7 @@ The audit covers exactly the checklist rows whose **Typ** is `Review` or `CI+Rev
 
 Hold the findings in view through step 4 and only write the report at step 5.
 
-1. **Assemble inputs.** Read the checklist. Pull the scanner output per the table above; on any miss, run the ad-hoc fallback and note in the report which source was used. Completion: checklist read and all four scanner sources resolved (CI artifact or fallback), each labelled with its provenance.
+1. **Assemble inputs.** Read the checklist. Pull the scanner output per the table above; on any miss, run the ad-hoc fallback and note in the report which source was used. Completion: checklist read and all four scanner sources resolved (CI artifact, fallback, or — Psalm only — `unavailable`), each labelled with its provenance.
 
 2. **Judgement pass.** For **every** `Review` and `CI+Review` row, inspect the current code/config it points at and assign a Status: `OK` / `Gap` / `N/A` / `Needs-infra` (infra-level, not verifiable from the repo), each with a one-line reason grounded in a concrete file, config key, or scanner finding. Completion: every `Review`/`CI+Review` row has a Status + reason — no row skipped.
 
