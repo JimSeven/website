@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Secret scan on staged changes before every commit.
+# Enable once per clone:  git config core.hooksPath .githooks
+# (composer install wires this automatically via the "post-autoload-dump" script.)
+# Emergency bypass:  git commit --no-verify
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+	cat >&2 <<'MSG'
+gitleaks not found — staged secret scan skipped.
+Install it so pre-commit protection is active:
+  macOS:  brew install gitleaks
+  other:  https://github.com/gitleaks/gitleaks#installing
+MSG
+	exit 0
+fi
+
+gitleaks git --pre-commit --staged --redact --no-banner --config .gitleaks.toml
