@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -79,6 +81,17 @@ return [
             'username' => env('LOG_SLACK_USERNAME', env('APP_NAME', 'Laravel')),
             'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
             'level' => env('LOG_LEVEL', 'critical'),
+            'replace_placeholders' => true,
+        ],
+
+        'security' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            // Fest auf 'info': erfasst Erfolgs-Logins (info) ebenso wie Fehl-
+            // versuche (warning) und Lockouts (critical). Nicht env-konfigurierbar,
+            // damit niemand versehentlich das Auth-Success-Logging wegfiltert.
+            'level' => 'info',
+            'days' => env('LOG_SECURITY_DAYS', 90),
             'replace_placeholders' => true,
         ],
 
