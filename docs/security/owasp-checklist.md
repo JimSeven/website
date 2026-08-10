@@ -65,13 +65,13 @@ Höchstes Projektrisiko wegen öffentlichem CP.
 | Battle-tested Auth (keine Eigenbau-Crypto) | **Gilt (erfüllt)** | Review | Statamic-CP-Auth + Laravel-Guards. `BCRYPT_ROUNDS=12`. Kein Eigenbau erkennbar. |
 | 2FA verfügbar | **Gilt (erfüllt)** | CI | `config/statamic/users.php` `two_factor_enabled` = `env(STATAMIC_TWO_FACTOR_ENABLED, true)`, `.env.example`=`true`. |
 | **2FA erzwungen** für CP-User/Super-Users | **Gilt (offen)** | CI | `two_factor_enforced_roles => []` → **nicht erzwungen**. Bei öffentlichem CP dringend `['*']` oder mindestens `super_users`. Statamic verschlüsselt 2FA-Secrets mit `APP_KEY`. |
-| Brute-Force-/Lockout-Schutz am CP-Login | **Gilt** | Review | Statamic wendet Login-Throttling an; Härtegrad projektseitig prüfen. OWASP: kontobezogener, exponentieller Lockout (Start 1s, verdoppelnd). |
+| Brute-Force-/Lockout-Schutz am CP-Login | **Gilt (erfüllt)** | Review | Statamic-Default (#22 verifiziert): `statamic.cp.auth` = **4/min pro IP** auf Login-POST, Password-Reset, Elevated-Session; 2FA-Challenge **5/min** pro Login-Session; Passkeys **30/min**. Kein exponentieller Lockout, aber ausreichend mit erzwungenem 2FA. Grenze: Per-IP-Throttle blockt verteilte/rotierende IPs nicht — 2FA fängt das ab. |
 | Passwort-Policy (mit MFA ≥8, ohne MFA ≥15; keine Composition-Rules; Breach-Check) | **Gilt** | Review | Keine projektseitige Policy im Repo. Falls 2FA erzwungen → ≥8 vertretbar; sonst ≥15. |
 | Generische Login-Fehlermeldungen (Anti-Enumeration) | **Gilt** | Review | Statamic-Default generisch; bei Custom-Login-/Register-/Reset-Flows selbst prüfen. |
 | Session-ID nach Login regeneriert, unvorhersagbar | **Gilt (erfüllt)** | Review | Laravel/Statamic-Default. |
 | Elevated Sessions für sensible CP-Aktionen | **Gilt (erfüllt)** | CI | `elevated_sessions_enabled => true`. |
 | Impersonation absichern | **Bedingt** | Review | `impersonate.enabled => true` (Default). Nur für vertrauenswürdige Super-Users; im Threat Model bewusst halten. |
-| CP-Route härten (Rename/Restriktion) | **Bedingt** | Review | `cp.route` = `env(CP_ROUTE, 'cp')`, `cp.enabled` = `env(CP_ENABLED, true)`. Öffentlich per Scope-Entscheidung. Optional: unratbarer Pfad, IP-Allowlist, Basic-Auth vorschalten (Defense in Depth, kein Ersatz für 2FA). |
+| CP-Route härten (Rename/Restriktion) | **Bedingt (entschieden)** | Review | Entscheidung #22: Hosting = **Forge**, CP-Zugriff von **beliebigen IPs** → IP-Allowlist verworfen (unpraktikabel), Basic-Auth verworfen (Shared-Cred-Friktion, kaum Mehrwert über erzwungenes 2FA). Gewählt: **unratbarer `CP_ROUTE`** via Forge-Env (Rausch-/Obscurity-Reduktion, kein Boundary). App-seitiger Login-Throttle (`statamic.cp.auth` = **4/min/IP**) + erzwungenes 2FA sind der reale Schutz. `nginx limit_req` auf CP-Pfad als optionaler Volumen-Throttle zurückgestellt. |
 | Öffentliche Nutzer-Registrierung deaktiviert/abgesichert | **Bedingt** | CI | `new_user_roles => []`, `registration_form_honeypot_field => null`. `user:register_form` scheint ungenutzt (leere `routes/web.php`). Falls genutzt: Honeypot setzen + Rollen bewusst vergeben. |
 
 **Statamic-Besonderheit:** User liegen als Flat-Files (`repository => file`). Keine `users`-DB-Tabelle → SQL-Auth-Angriffe entfallen, dafür Datei-/Git-Exposure der User-Files beachten (Passwort-Hashes im Repo, wenn User eingecheckt werden — prüfen, dass `users/` nicht öffentlich servierbar und Hashing korrekt).
@@ -209,7 +209,7 @@ Kein Header-Setzen im Repo (keine Middleware). Alle unten **offen**.
 
 **Urteilsabhängig (Agent-/Human-Review):**
 6. CSP für Frontend + separat `/cp` (Inertia/Vue + Live Preview kompatibel) — §G.
-7. CP-Zugang härten (IP-Allowlist/Basic-Auth vorschalten, Route umbenennen, Session-Lifetime) — §C.
+7. ~~CP-Zugang härten~~ **(entschieden #22)**: unratbarer `CP_ROUTE` via Forge-Env; IP-Allowlist/Basic-Auth verworfen (beliebige IPs, erzwungenes 2FA + 4/min/IP-Throttle bereits da). `nginx limit_req` optional zurückgestellt. — §C.
 8. TLS/Redirect + Trusted Proxies auf Infra-Ebene — §B.
 9. Sicherheits-Logging + Monitoring/Alerting für fehlgeschlagene CP-Logins — §K/§L.
 
