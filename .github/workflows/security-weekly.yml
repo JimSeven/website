@@ -71,6 +71,8 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+          touch database/database.sqlite
+          php artisan migrate --force
 
       - name: Composer audit
         run: composer audit --locked
@@ -134,7 +136,8 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           body=$(printf 'The weekly security scan failed.\n\nRun: %s\n\nRe-run the workflow or inspect the job logs for the failing scanner (composer audit, doctor, larastan or npm audit).' "$RUN_URL")
-          existing=$(gh issue list --label security-audit --state open --json number --jq '.[0].number')
+          existing=$(gh issue list --label security-audit --state open --limit 100 --json number,title \
+            --jq 'map(select(.title == "Weekly security scan failing")) | .[0].number // empty')
           if [ -n "$existing" ]; then
             gh issue comment "$existing" --body "$body"
           else
