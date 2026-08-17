@@ -12,6 +12,7 @@
 /.idea
 /.nova
 /.phpunit.cache
+/.scratch
 /.vscode
 /.zed
 /auth.json
