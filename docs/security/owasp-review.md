@@ -3,7 +3,7 @@
 **Quelle der Checkliste:** `docs/security/owasp-checklist.md`
 **Prozess:** `/owasp-review` — manuell vor Release. Ein Lauf schreibt jeden Punkt (Status + Begründung + Datum) fort.
 **Letzter Lauf:** 2026-07-31
-**Letzte Fortschreibung:** 2026-08-10 — Umsetzungs-Merges §G (#21), §C (#22/#29), §K/§L-Logging (#23/#32); Sentry-Teil nach #31 ausgelagert. Kein voller Re-Audit, nur Status-Fortschreibung der betroffenen Punkte.
+**Letzte Fortschreibung:** 2026-08-17 — #23 geschlossen (mit #32 erledigt); §L-Monitoring-Kandidaten in #31 erweitert (Nightwatch), `needs-infra`-Restpunkte dort gebündelt. Davor 2026-08-10 — Umsetzungs-Merges §G (#21), §C (#22/#29), §K/§L-Logging (#23/#32). Kein voller Re-Audit, nur Status-Fortschreibung der betroffenen Punkte.
 **Diff-Basis (`/security-review`):** `origin/main` (kein Release-Tag vorhanden)
 
 ## Scanner-Input (Provenance)
@@ -47,7 +47,7 @@ Zusatz: `gitleaks`- und `npm-audit`-Jobs des Laufs ebenfalls `success`.
 | §K | CP-Login-Throttling | OK | Statamic-Default aktiv (siehe §C Brute-Force) | 2026-07-31 |
 | §K | Öffentliche Forms rate-limited | OK | `statamic.forms`-Limiter default 10/min pro IP; nicht aufgeweicht. Honeypot nicht gesetzt (keine aktiven Custom-Forms heute) | 2026-07-31 |
 | §L | Ausreichendes Logging (Login-Fehler, Access-Control-Fails) | OK | Umgesetzt #23 (PR #32, ADR-0001, 2026-08-10): Event-Subscriber loggt `Failed`/`Lockout`/`TwoFactorAuthenticationFailed`/`Login` strukturiert in dedizierten `security`-Channel (`daily`, 90 Tage); Lockout-Alert via Slack-Webhook, env-gated (`LOG_SLACK_WEBHOOK_URL`). Passwort/`credentials` werden nie geloggt (per Test abgesichert) | 2026-08-10 |
-| §L | Fehler-Monitoring (Sentry o.ä.) | Gap | Kein Error-Monitoring im Repo (A09). Aus #23 herausgelöst → eigenes Ticket **#31** (`ready-for-human`): ja/nein-Entscheidung für Produktion noch offen | 2026-08-10 |
+| §L | Fehler-Monitoring (Sentry o.ä.) | Gap | Kein Error-Monitoring im Repo (A09). Aus #23 herausgelöst → eigenes Ticket **#31** (`ready-for-human`): ja/nein-Entscheidung für Produktion noch offen. Kandidaten inzwischen zwei Klassen — Error-Tracking (Sentry/GlitchTip) vs. Full-Stack-Observability (Laravel Nightwatch); Ergebnis wird ADR-0002 | 2026-08-17 |
 | §L | Statamic/Laravel-Updates zeitnah | OK | Laravel `^13`, Statamic `^6`; Dependabot (composer+npm) + `composer audit`-Gate (PR + Wochenlauf) sichern Update-Kadenz | 2026-07-31 |
 | §L | Integrity/Supply-Chain (CI/CD, Git-Integration) | OK | `STATAMIC_GIT_ENABLED=false` (kein Auto-Commit produktiver Änderungen); CI mit gepinnten Actions (aktuelle Dependabot-Bumps) | 2026-07-31 |
 
@@ -68,10 +68,12 @@ Kein Release-Tag vorhanden → Basis = `origin/main`. `origin/main...HEAD` ist *
 
 - Fog-Punkt 6 (§G CSP) → #21 → **gemergt** (PR #25, 2026-08-10)
 - Fog-Punkt 7 (§C CP-Zugang härten) → #22 → **gemergt** (PR #29, 2026-08-10)
-- Fog-Punkt 9 (§K/§L Security-Logging + Alerting) → #23 → **gemergt** (PR #32, ADR-0001, 2026-08-10)
-- §L Fehler-Monitoring/Sentry → #31 (`security-audit`, `ready-for-human`) — **offen**, aus #23 ausgelagert
+- Fog-Punkt 9 (§K/§L Security-Logging + Alerting) → #23 → **gemergt** (PR #32, ADR-0001, 2026-08-10), Ticket **geschlossen** 2026-08-17
+- §L Fehler-Monitoring → #31 (`security-audit`, `ready-for-human`) — **offen**, aus #23 ausgelagert
 
 ### Offene Restpunkte (kein Agent-Build)
 
-- #31 Sentry: ja/nein-Entscheidung für Produktion (`ready-for-human`).
-- `Needs-infra` (Host-/Laravel-Cloud-Ebene, nicht im Repo lösbar): §B http→https-Redirect, §I Dateirechte, §J Upload-Größenlimits.
+Alle in **#31** gebündelt, weil beides dieselbe Deploy-/Infra-Ebene ist:
+
+- Error-Monitoring: ja/nein-Entscheidung für Produktion, Sentry vs. Laravel Nightwatch (`ready-for-human`) → ADR-0002.
+- `Needs-infra` (Host-/Laravel-Cloud-Ebene, nicht im Repo lösbar): §B http→https-Redirect, §I Dateirechte, §J Upload-Größenlimits. Noch zu entscheiden, ob je eigenes Ticket oder Verankerung in `docs/security/deploy-env-checklist.md`.
