@@ -33,6 +33,23 @@ Weitere belegte Konditionen:
 
 Ein **Jahres-/Annual-Plan** ist auf der Pricing-Seite und in der Subscriptions-Doku nicht erwähnt — siehe [Nicht belegbar](#nicht-belegbar).
 
+### 1.1 Lässt sich das Volumen nach Response-Status filtern? (Nein)
+
+Naheliegender Kostenhebel für eine überwiegend statische Site: Requests mit `200` gar nicht erfassen, nur Fehlerfälle. Das ist **nicht vorgesehen**:
+
+| Mechanismus | Was er ist | Status-bedingt? |
+|---|---|---|
+| `sample_rate.*` (`requests`, `commands`, `exceptions`, `scheduled_tasks`) | feste Floats, Default `1.0` | **nein** — Zufallsrate, kein Prädikat, kein Sampler-Callback mit Request-/Response-Kontext |
+| `ignore_queries`, `ignore_cache_events`, `ignore_mail`, `ignore_notifications`, `ignore_outgoing_requests` | Booleans pro Event-**Typ** | **nein** — global an/aus, nicht pro Vorgang |
+| `Nightwatch::ignore(fn () => …)` | Scope-Wrapper: „filter out any events occurring **within the callback**" | **nein** — beim Betreten des Callbacks ist der Response-Status noch unbekannt; kein Post-hoc-Prädikat |
+| `Nightwatch::pause()` / `resume()` | manuelles Aussetzen ab Aufrufzeitpunkt | **nein** — wirkt vorwärts, nicht rückwirkend |
+
+Belege: [`config/nightwatch.php`](https://github.com/laravel/nightwatch/blob/1.x/config/nightwatch.php) (vollständige Schlüsselliste; kein Schlüssel referenziert Status, Response oder Outcome), [Filtering](https://nightwatch.laravel.com/docs/filtering) (Status-basiertes Filtern kommt dort nicht vor).
+
+**Warum das konsistent ist:** Nightwatch aggregiert Requests zu Baseline-Metriken (Durchsatz, p95-Latenz, langsamste Routes). Erfolgreiche Requests sind dort die Bezugsgröße, nicht Rauschen — ohne sie fällt das Produkt auf Error-Tracking zurück. Der dokumentierte Hebel ist daher **Sampling statt Selektion**: Verteilung erhalten, Volumen senken. Offizielle Empfehlung: `NIGHTWATCH_REQUEST_SAMPLE_RATE=0.1` bei `NIGHTWATCH_EXCEPTION_SAMPLE_RATE=1.0` ([Filtering](https://nightwatch.laravel.com/docs/filtering)).
+
+Damit ist die dem Ziel nächstliegende Konfiguration „alle Exceptions, ein Zehntel der Requests" — nicht „keine 200er". Ob ausgesampelte Events fürs Quota zählen, ist nicht dokumentiert; da der Agent sie nicht überträgt, ist Nicht-Abrechnung plausibel, aber **unbelegt**.
+
 ## 2. Self-hosted: nein (Service), ja (Client)
 
 Die Unterscheidung, auf die #31 zielt, ist hier eindeutig belegt und fällt in zwei Teile auseinander.
@@ -130,6 +147,8 @@ Nicht Laravel-fremd nutzbar: „Nightwatch is purpose-built for Laravel … Supp
 | **Verbindliche Retention** | Pricing-Tabelle (Lookback 14/30/60/90 Tage) und Pricing-FAQ („we store data for 90 days") widersprechen sich; Terms behalten Änderungen jederzeit vor ([Terms §13](https://laravel.com/legal/nightwatch/terms)). Es gibt keine vertraglich fixierte Zahl in einer öffentlichen Quelle. |
 | **Event-Volumen dieses Projekts** | Nicht aus Primärquellen zu Nightwatch beantwortbar — hängt an Traffic und Sampling. Im Repo liegen keine Traffic-Daten. Nur messbar, nicht recherchierbar. |
 | **`NIGHTWATCH_BASE_URL` als unterstützter Umschaltpunkt** | Nur im Agent-Quellcode und in `agent/.env.example` vorhanden, in der offiziellen [Environment-Variables-Doku](https://nightwatch.laravel.com/docs/environment-variables) **nicht** dokumentiert. Als Feature also unbelegt — Implementierungsdetail, keine Zusage. |
+| **Greift `exceptions`-Sampling unabhängig vom `requests`-Sampling?** | Entscheidend für die empfohlene Kombination `REQUEST_SAMPLE_RATE=0.1` + `EXCEPTION_SAMPLE_RATE=1.0` (siehe [1.1](#11-lässt-sich-das-volumen-nach-response-status-filtern-nein)): Wird eine Exception in einem **nicht** gesampelten Request trotzdem erfasst? Weder [Filtering](https://nightwatch.laravel.com/docs/filtering) noch [Exceptions](https://nightwatch.laravel.com/docs/exceptions) noch [Environment Variables](https://nightwatch.laravel.com/docs/environment-variables) sagen dazu etwas. Falls **nein**, erkauft `0.1` ein 90-%-Loch in der Fehlererfassung — also das Gegenteil des Zwecks. **Fehlend:** eine Herstelleraussage zur Interaktion der Sample-Rates; vor einer Ja-Entscheidung beim Support zu klären. |
+| **Zählen ausgesampelte Events fürs Quota?** | Nicht dokumentiert ([Filtering](https://nightwatch.laravel.com/docs/filtering), [Additional Events](https://nightwatch.laravel.com/docs/additional-events)). Der Agent überträgt sie nicht, Nicht-Abrechnung ist daher plausibel — aber eine Inferenz, kein Beleg. |
 
 ## Konsequenz für #31
 
@@ -137,7 +156,7 @@ Nüchterne Ableitung aus den Fakten, ohne Empfehlung:
 
 1. **Self-hosted vs. SaaS ist für Nightwatch keine offene Alternative, sondern entschieden.** „Nightwatch is a fully-managed product." Damit fällt der Trade-off „Betriebsaufwand gegen Datenhoheit" aus #31 für Nightwatch weg: wer Datenhoheit will, landet zwangsläufig in der anderen Kandidatenklasse (GlitchTip self-hosted). Dass Package *und* Agent MIT sind, ändert daran nichts — es gibt keine beziehbare Server-Seite.
 2. **Der DSGVO-Blocker ist nicht die Region, sondern das Papier.** Eine EU-Region (Frankfurt) existiert und ist pro Application wählbar; der Vertragspartner ist ein US-Unternehmen (Laravel Holdings Inc., Recht New York). Der AVV ist nur auf Anfrage erhältlich, die Sub-Processor-Liste gated, und Nightwatch führt selbst keine erteilte SOC-2-/ISO-Zertifizierung. Für eine Ja-Entscheidung ist der DPA-Text also vorher anzufordern — das ist ein Vorgang mit Latenz, kein Prüfpunkt in der Session.
-3. **Die Abrechnungseinheit passt nicht zur Fragestellung von #31.** Bezahlt werden Events des ganzen Stacks (Requests, Queries, Cache …), nicht Exceptions. Bei einer im Wesentlichen statischen Statamic-Site heißt das: die Kosten skalieren mit Traffic, nicht mit Fehlerhäufigkeit — genau umgekehrt zur Kostenkurve eines reinen Error-Trackers. Steuerbar ist das nur über Sampling/Filtering, d. h. über bewussten Sichtbarkeitsverzicht. Das Free-Tier-Budget von 300k Events/Monat und 14 Tagen Lookback ist die relevante Vergleichsgröße; welches Volumen dieses Projekt erzeugt, ist unbekannt und müsste gemessen werden.
+3. **Die Abrechnungseinheit passt nicht zur Fragestellung von #31.** Bezahlt werden Events des ganzen Stacks (Requests, Queries, Cache …), nicht Exceptions. Ein „nur Fehlerfälle erfassen"-Schalter existiert nicht (siehe [1.1](#11-lässt-sich-das-volumen-nach-response-status-filtern-nein)) — wer die Erfassung auf Fehler reduzieren will, will kein Observability-Produkt, und hat die Klassenfrage damit implizit beantwortet. Bei einer im Wesentlichen statischen Statamic-Site heißt das: die Kosten skalieren mit Traffic, nicht mit Fehlerhäufigkeit — genau umgekehrt zur Kostenkurve eines reinen Error-Trackers. Steuerbar ist das nur über Sampling/Filtering, d. h. über bewussten Sichtbarkeitsverzicht. Das Free-Tier-Budget von 300k Events/Monat und 14 Tagen Lookback ist die relevante Vergleichsgröße; welches Volumen dieses Projekt erzeugt, ist unbekannt und müsste gemessen werden.
 4. **Nightwatch ist funktional ein Superset, nicht eine Ergänzung.** Exception-Grouping, Issue-Lifecycle, Occurrence-/User-Counts, Deploy-Zuordnung, Slack/Webhook-Alerting sind vorhanden — die Error-Tracking-Funktionen von #31 sind abgedeckt. Ein Parallelbetrieb mit Sentry ist möglich, aber laut Hersteller mit kumulativem Overhead. Die Klassenfrage aus #31 ist damit keine Funktions-, sondern eine Kosten-/Betriebs-/Datenschutz-Frage.
 5. **Neuer Betriebsposten, der bei Sentry entfällt:** ein dauerhaft laufender Agent-Prozess pro App inkl. Process-Monitor und eigenem Health-Check (`nightwatch:status`). Das gehört auf dieselbe Deploy-/Infra-Ebene wie die `needs-infra`-Restpunkte (§B/§I/§J) im Ticket — und ist ein Punkt, den ein reines SDK-basiertes Error-Tracking nicht hat.
 6. **PII-Baseline ist konservativ** und spricht nicht gegen Nightwatch: Query-Bindings werden per Design nie übertragen, Request-Payloads sind default-off, sensible Header werden default redigiert, Redaction läuft clientseitig im MIT-Package. Bewusst zu entscheiden bleiben zwei Defaults: erfasste User-`id` (nicht abschaltbar) sowie IP-Adressen und Source-Code-Snippets in Stacktraces (beide default an).
