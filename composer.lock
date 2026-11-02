@@ -5104,16 +5104,16 @@
         },
         {
             "name": "spatie/fork",
-            "version": "1.2.7",
+            "version": "1.2.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/spatie/fork.git",
-                "reference": "83a51210fd366af3972aad119e7ab5e35ac57850"
+                "reference": "bb6acbd31c0b01b10ab472e84a103f3bc406a871"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/spatie/fork/zipball/83a51210fd366af3972aad119e7ab5e35ac57850",
-                "reference": "83a51210fd366af3972aad119e7ab5e35ac57850",
+                "url": "https://api.github.com/repos/spatie/fork/zipball/bb6acbd31c0b01b10ab472e84a103f3bc406a871",
+                "reference": "bb6acbd31c0b01b10ab472e84a103f3bc406a871",
                 "shasum": ""
             },
             "require": {
@@ -5157,7 +5157,7 @@
             ],
             "support": {
                 "issues": "https://github.com/spatie/fork/issues",
-                "source": "https://github.com/spatie/fork/tree/1.2.7"
+                "source": "https://github.com/spatie/fork/tree/1.2.8"
             },
             "funding": [
                 {
@@ -5165,7 +5165,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-03-27T19:08:46+00:00"
+            "time": "2026-09-14T12:11:03+00:00"
         },
         {
             "name": "spatie/laravel-csp",
